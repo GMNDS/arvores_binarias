@@ -237,7 +237,7 @@ Node* buildBalanced(int values[], int start, int end) {
             >
               ✕
             </button>
-          </div>          <div className="p-4 max-h-96 overflow-y-auto">
+          </div>          <div className="p-4 max-h-80 overflow-y-auto scroll-container">
             <SyntaxHighlighter 
               language="c"
               style={vscDarkPlus}

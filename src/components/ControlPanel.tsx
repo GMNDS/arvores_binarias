@@ -15,6 +15,7 @@ interface Props {
   onSearch?: (value: number) => void
   onDelete?: (value: number) => void
   treeData?: any
+  onResetHighlight?: () => void
 }
 
 export const ControlPanel = ({
@@ -29,7 +30,8 @@ export const ControlPanel = ({
   onSearch,
   onDelete,
   treeData,
-  onHighlightCommand
+  onHighlightCommand,
+  onResetHighlight
 }: Props) => {
   const [nodeValue, setNodeValue] = useState('')
   const [inputValue, setInputValue] = useState('')
@@ -160,6 +162,7 @@ export const ControlPanel = ({
             <button onClick={() => handleNodeCommand('path')} disabled={!treeData} className="px-3 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-lg font-semibold text-sm disabled:opacity-50">Caminho</button>
             <button onClick={() => handleNodeCommand('ancestors')} disabled={!treeData} className="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-semibold text-sm disabled:opacity-50">Ancestrais</button>
             <button onClick={() => handleNodeCommand('descendants')} disabled={!treeData} className="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-semibold text-sm disabled:opacity-50">Descendentes</button>
+            <button onClick={() => onResetHighlight && onResetHighlight()} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold text-sm">🔄 Resetar</button>
           </div>
         </div>
         {/* Seção de Entrada */}

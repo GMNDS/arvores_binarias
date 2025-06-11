@@ -661,6 +661,7 @@ export const BinaryTreeVisualizer = ({
     setDeletePath([])
     setNodeToDelete(null)
     setDeletedNode(null)
+    setHighlightedNodes(new Set())
   }
 
   // Detectar quando o valor de busca é fornecido
@@ -897,7 +898,7 @@ export const BinaryTreeVisualizer = ({
         style={{ outline: 'none' }}
       >
         <svg 
-          className="w-full h-[600px] overflow-hidden border border-slate-700 rounded-lg cursor-move" 
+          className="w-full h-[600px] border border-slate-700 rounded-lg cursor-move" 
           viewBox="0 0 800 600"
           preserveAspectRatio="xMidYMid meet"
           onMouseDown={handleMouseDown}

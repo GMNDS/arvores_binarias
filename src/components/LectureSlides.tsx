@@ -1,4 +1,4 @@
-import  { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -76,18 +76,20 @@ Node* search(Node* root, int value) {
         return search(root->right, value);
     }
 }`,
-    traversal: `// Percursos em Árvore Binária
+    traversal: `// Percursos em Árvore Binária (Traverse = Visitar TODOS os nós)
+// TRAVERSE = percorrer todos os nós da árvore em uma ordem específica
+
 void inorder(Node* root) {
     if (root != NULL) {
         inorder(root->left);      // Esquerda
-        printf("%d ", root->data); // Raiz
+        printf("%d ", root->data); // Raiz (visita o nó atual)
         inorder(root->right);     // Direita
     }
 }
 
 void preorder(Node* root) {
     if (root != NULL) {
-        printf("%d ", root->data); // Raiz
+        printf("%d ", root->data); // Raiz (visita o nó atual)
         preorder(root->left);      // Esquerda
         preorder(root->right);     // Direita
     }
@@ -167,55 +169,94 @@ bool isBalanced(Node* root) {
     
     return false;
 }`,
-    memoryLeakIncorrect: `
-// Incorreto: Nós alocados não são liberados
-void createTree() {
-    Node* root = createNode(10);
-    root->left = createNode(5);
-    root->right = createNode(15);
-    // ... mais nós ...
-    // A função termina, mas a memória não foi liberada
+    memoryLeakIncorrect: `// ❌ ERRO: Aloca memória mas nunca libera
+void badTreeFunction() {
+    Node* root = malloc(sizeof(Node));
+    root->data = 10;
+    root->left = malloc(sizeof(Node));
+    root->left->data = 5;
+    root->right = malloc(sizeof(Node));
+    root->right->data = 15;
+    
+    // Processamento...
+    printf("Árvore criada\\n");
+    
+    // ERRO! Função termina sem fazer free()
+    // Memória fica ocupada para sempre = VAZAMENTO
 }`,
-    memoryLeakCorrect: `
-// Correto: Função para liberar a árvore (pós-ordem)
+    memoryLeakCorrect: `// ✅ CORRETO: Para cada malloc(), um free()
 void freeTree(Node* root) {
     if (root == NULL) return;
+    
+    // Liberar filhos primeiro (pós-ordem)
     freeTree(root->left);
     freeTree(root->right);
+    
+    // Depois liberar o nó atual
     free(root);
 }
 
-void usageExample() {
-    Node* root = createNode(10);
-    root->left = createNode(5);
-    // ...
-    freeTree(root); // Libera a memória ao final
+void goodTreeFunction() {
+    Node* root = malloc(sizeof(Node));
+    root->data = 10;
+    root->left = malloc(sizeof(Node));
+    root->left->data = 5;
+    root->right = malloc(sizeof(Node));
+    root->right->data = 15;
+    
+    // Processamento...
+    printf("Árvore criada\\n");
+    
+    // CORRETO! Limpar a memória antes de sair
+    freeTree(root);
 }`,
-    nullPointerIncorrect: `
-// Incorreto: Acessar root->left->data sem verificar se root->left é NULL
-void printLeftChildData(Node* root) {
-    if (root != NULL) {
-        // Erro se root->left for NULL
-        printf("Left child data: %d\\n", root->left->data);
+    nullPointerIncorrect: `// ❌ ERRO: Não verifica se node é NULL
+void printNodeData(Node* node) {
+    // PERIGO! Se node for NULL, vai dar segmentation fault
+    printf("Valor do nó: %d\\n", node->data);
+    
+    // Ainda mais perigoso - pode tentar acessar NULL->left
+    if (node->left != NULL) {
+        printf("Filho esquerdo: %d\\n", node->left->data);
     }
+}
+
+// Exemplo de uso que causa crash:
+int main() {
+    Node* root = NULL;  // Árvore vazia
+    printNodeData(root); // 💥 CRASH! Tentando acessar NULL->data
+    return 0;
 }`,
-    nullPointerCorrect: `
-// Correto: Verificar se o ponteiro é NULL antes de desreferenciar
-void printLeftChildDataSafe(Node* root) {
-    if (root != NULL && root->left != NULL) {
-        printf("Left child data: %d\\n", root->left->data);
+    nullPointerCorrect: `// ✅ CORRETO: Sempre verifica NULL primeiro
+void printNodeDataSafe(Node* node) {
+    // SEMPRE verificar se o ponteiro é válido
+    if (node == NULL) {
+        printf("Nó é NULL - não pode acessar\\n");
+        return;
+    }
+    
+    // Agora é seguro acessar node->data
+    printf("Valor do nó: %d\\n", node->data);
+    
+    // Verificar filhos também
+    if (node->left != NULL) {
+        printf("Filho esquerdo: %d\\n", node->left->data);
     } else {
-        printf("Left child does not exist or root is NULL.\\n");
+        printf("Não tem filho esquerdo\\n");
     }
 }`,
-    incorrectRecursionIncorrect: `
-// Incorreto: Caso base ausente ou incorreto para altura
-int calculateHeightIncorrect(Node* root) {
-    // Sem caso base para root == NULL, levará a erro de segmentação
-    int leftHeight = calculateHeightIncorrect(root->left);
-    int rightHeight = calculateHeightIncorrect(root->right);
+    incorrectRecursionIncorrect: `// ❌ ERRO: Recursão sem caso base
+int calculateHeightBroken(Node* root) {
+    // PERIGO! Não verifica se root é NULL
+    // Se chamado com NULL, vai tentar acessar NULL->left e NULL->right
+    
+    int leftHeight = calculateHeightBroken(root->left);   // 💥 CRASH se root for NULL
+    int rightHeight = calculateHeightBroken(root->right); // 💥 CRASH se root for NULL
+    
     return 1 + (leftHeight > rightHeight ? leftHeight : rightHeight);
-}`,
+}
+
+// Mesmo se verificasse NULL, sem return causaria loop infinito!`,
     incorrectRecursionCorrect: `
 // Correto: Caso base definido para recursão da altura
 int calculateHeightCorrect(Node* root) {
@@ -329,7 +370,7 @@ Node* insertCorrect(Node* root, int value) {
       // No transform here by default, base transform is applied separately
     };
   };
-  
+
   const renderCurrentSlide = () => {
     switch (section) {
       case 'intro':
@@ -353,31 +394,125 @@ Node* insertCorrect(Node* root, int value) {
             >
               Estruturas de Dados para Desenvolvimento Multiplataforma
             </motion.h2>
+
             <motion.div
               variants={slideVariants}
               initial="hidden"
               animate="visible"
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="max-w-4xl mx-auto"
+              className="max-w-6xl mx-auto"
             >
-              <p className="text-lg text-gray-300 mb-8 leading-relaxed">
-                Uma abordagem prática e envolvente para o aprendizado de árvores binárias,
-                combinando conceitos fundamentais com aplicações do mundo real.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-blue-600/20 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-blue-400/30 hover:bg-blue-600/30 transition-all duration-300 hover:scale-105">
-                  <span className="text-white font-semibold">🎯 Conceitos Fundamentais</span>
+
+              {/* O que você vai aprender */}
+              <motion.div
+                className="mb-8"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <h3 className="text-2xl font-bold text-blue-300 mb-6">🎯 O que você vai aprender</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+
+                  {/* Fundamentos */}
+                  <div className="bg-blue-600/20 backdrop-blur-sm rounded-lg p-4 border border-blue-400/30 hover:bg-blue-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">📚</span>
+                      <div>
+                        <h4 className="text-blue-200 font-semibold mb-2">Fundamentos</h4>
+
+                      </div>
+                    </div>
+                  </div>
+
+
+                  {/* Operações */}
+                  <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg p-4 border border-purple-400/30 hover:bg-purple-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">⚙️</span>
+                      <div>
+                        <h4 className="text-purple-200 font-semibold mb-2">Operações</h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Erros */}
+                  <div className="bg-red-600/20 backdrop-blur-sm rounded-lg p-4 border border-purple-400/30 hover:bg-purple-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">❌</span>
+                      <div>
+                        <h4 className="text-red-200 font-semibold mb-2">Erros</h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Análise */}
+                  <div className="bg-orange-600/20 backdrop-blur-sm rounded-lg p-4 border border-orange-400/30 hover:bg-orange-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">📊</span>
+                      <div>
+                        <h4 className="text-orange-200 font-semibold mb-2">Análise</h4>
+      
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prática */}
+                  <div className="bg-red-600/20 backdrop-blur-sm rounded-lg p-4 border border-red-400/30 hover:bg-red-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">🎮</span>
+                      <div>
+                        <h4 className="text-red-200 font-semibold mb-2">Visualização Prática</h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Aplicações */}
+                  <div className="bg-cyan-600/20 backdrop-blur-sm rounded-lg p-4 border border-cyan-400/30 hover:bg-cyan-600/30 transition-all duration-300 hover:scale-105 text-left">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-2xl">🌍</span>
+                      <div>
+                        <h4 className="text-cyan-200 font-semibold mb-2">Aplicações Reais</h4>
+        
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-green-600/20 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-green-400/30 hover:bg-green-600/30 transition-all duration-300 hover:scale-105">
-                  <span className="text-white font-semibold">💻 Implementação em C</span>
+              </motion.div>
+
+              {/* Metodologia */}
+              <motion.div
+                className="mb-8"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+              >
+                <h3 className="text-2xl font-bold text-green-300 mb-6">Metodologia</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                  <div className="bg-slate-700/50 rounded-lg p-4 text-center border border-slate-600/50">
+                    <span className="text-3xl block mb-2">1️⃣</span>
+                    <strong className="text-white">Recapitulação</strong>
+                    <p className="text-gray-400 text-sm mt-1">Revisão de estruturas anteriores</p>
+                  </div>
+                  <div className="bg-slate-700/50 rounded-lg p-4 text-center border border-slate-600/50">
+                    <span className="text-3xl block mb-2">2️⃣</span>
+                    <strong className="text-white">Teoria</strong>
+                    <p className="text-gray-400 text-sm mt-1">Conceitos e implementação</p>
+                  </div>
+                  <div className="bg-slate-700/50 rounded-lg p-4 text-center border border-slate-600/50">
+                    <span className="text-3xl block mb-2">3️⃣</span>
+                    <strong className="text-white">Prática</strong>
+                    <p className="text-gray-400 text-sm mt-1">Visualização interativa</p>
+                  </div>
+                  <div className="bg-slate-700/50 rounded-lg p-4 text-center border border-slate-600/50">
+                    <span className="text-3xl block mb-2">4️⃣</span>
+                    <strong className="text-white">Aplicação</strong>
+                    <p className="text-gray-400 text-sm mt-1">Jogo e casos reais</p>
+                  </div>
                 </div>
-                <div className="bg-purple-600/20 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-purple-400/30 hover:bg-purple-600/30 transition-all duration-300 hover:scale-105">
-                  <span className="text-white font-semibold">🎮 Aprendizado Interativo</span>
-                </div>
-                <div className="bg-orange-600/20 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-orange-400/30 hover:bg-orange-600/30 transition-all duration-300 hover:scale-105">
-                  <span className="text-white font-semibold">🏰 Masmorra Binária</span>
-                </div>
-              </div>
+              </motion.div>
+
+              {/* Call to Action */}
+              {/* ...existing code... */}
             </motion.div>
           </div>
         );
@@ -412,7 +547,7 @@ Node* insertCorrect(Node* root, int value) {
                 {/* ... list of terms ... */}
                 <ul className="text-gray-100 space-y-1 leading-relaxed text-left text-sm lg:text-base xl:text-lg mb-auto">
                   {Object.keys(termNodeMapping).map(term => (
-                    <li 
+                    <li
                       key={term}
                       onMouseEnter={() => setHoveredTerm(term)}
                       onMouseLeave={() => setHoveredTerm(null)}
@@ -427,7 +562,8 @@ Node* insertCorrect(Node* root, int value) {
                     {hoveredTerm ? `Visualizando: ${hoveredTerm}` : "Passe o mouse sobre um termo"}
                   </h4>
                   <div className="relative h-48 w-full max-w-xs mx-auto bg-slate-900/50 rounded p-2 border border-slate-700">
-                    <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
+                    <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }} >
+                      <title>Binary Tree Example</title>
                       {edges.map(edge => {
                         const fromNode = getNodeById(edge.from);
                         const toNode = getNodeById(edge.to);
@@ -507,83 +643,143 @@ Node* insertCorrect(Node* root, int value) {
               animate="visible"
               className="text-4xl font-bold text-white mb-8 text-center"
             >
-              🔍 Tipos de Árvores Binárias
+              🌳 Tipos e Formas de Árvores Binárias
             </motion.h2>
+
+            {/* Seção 1: Tipos de Árvores Binárias */}
             <motion.div
               variants={slideVariants}
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.2 }}
-              className="max-w-7xl mx-auto"
+              className="max-w-7xl mx-auto mb-12"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 rounded-xl p-6 mb-8 border border-purple-400/30">
+                <h3 className="text-3xl font-bold text-purple-200 mb-4 text-center">
+                  🎯 TIPOS de Árvores Binárias
+                </h3>
+                <p className="text-gray-200 text-lg text-center leading-relaxed">
+                  Diferentes algoritmos e estruturas especializadas com regras específicas
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-purple-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-purple-300 mb-4">🎯 Árvore Binária de Busca (BST)</h3>
+                  <h4 className="text-xl font-semibold text-purple-300 mb-4">🎯 Binary Search Tree (BST)</h4>
                   <p className="text-gray-100 mb-4 leading-relaxed">Propriedade: valores menores à esquerda, maiores à direita</p>
-                  <div className="bg-gray-900/80 p-4 rounded font-mono text-sm text-center text-cyan-300 border border-gray-600">
+                  <div className="bg-gray-900/80 p-4 rounded font-mono text-sm text-center text-cyan-300 border border-gray-600 mb-3">
                     <div className="mb-2">15</div>
                     <div className="mb-2">/ \</div>
                     <div className="mb-2">10 20</div>
                     <div className="mb-2">/ \ / \</div>
-                    <div>5 12 18 25</div>
+                    <div className="mb-2">5 12 18 25</div>
+                  </div>
+                  <div className="bg-purple-900/60 p-3 rounded border border-purple-500/30">
+                    <span className="text-purple-200 text-sm">⚡ Busca: O(log n) ~ O(n)</span>
                   </div>
                 </div>
 
                 <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-green-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-green-300 mb-4">⚖️ Árvore Balanceada</h3>
-                  <p className="text-gray-100 mb-4 leading-relaxed">Altura das subárvores difere por no máximo 1</p>
+                  <h4 className="text-xl font-semibold text-green-300 mb-4">⚖️ Árvore AVL</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">BST auto-balanceável com fator de balanceamento ≤ 1</p>
+                  <div className="bg-gray-900/80 p-4 rounded font-mono text-sm text-center text-cyan-300 border border-gray-600 mb-3">
+                    <div className="mb-2">10</div>
+                    <div className="mb-2">/ \</div>
+                    <div className="mb-2">5 15</div>
+                    <div className="mb-2">/ \ / \</div>
+                    <div>3 7 12 20</div>
+                  </div>
                   <div className="bg-green-900/60 p-3 rounded border border-green-500/30">
-                    <span className="text-green-200 font-semibold">✅ Busca eficiente: O(log n)</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-blue-300 mb-4">📏 Árvore Completa</h3>
-                  <p className="text-gray-100 mb-4 leading-relaxed">Todos os níveis preenchidos, exceto possivelmente o último</p>
-                  <div className="bg-blue-900/60 p-3 rounded border border-blue-500/30">
-                    <span className="text-blue-200">Folhas concentradas à esquerda</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-yellow-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-yellow-300 mb-4">🏆 Árvore Cheia (Full)</h3>
-                  <p className="text-gray-100 mb-4 leading-relaxed">Cada nó tem 0 ou 2 filhos (nunca apenas 1)</p>
-                  <div className="bg-yellow-900/60 p-3 rounded border border-yellow-500/30">
-                    <span className="text-yellow-200">Estrutura binária pura</span>
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-indigo-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-indigo-300 mb-4">💎 Árvore Perfeita</h3>
-                  <p className="text-gray-100 mb-4 leading-relaxed">Árvore cheia E completa simultaneamente</p>
-                  <div className="bg-indigo-900/60 p-3 rounded border border-indigo-500/30">
-                    <span className="text-indigo-200">Todas as folhas no mesmo nível</span>
+                    <span className="text-green-200 text-sm font-semibold">✅ Sempre O(log n)</span>
                   </div>
                 </div>
 
                 <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-red-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                  <h3 className="text-xl font-semibold text-red-300 mb-4">📉 Árvore Degenerada</h3>
-                  <p className="text-gray-100 mb-4 leading-relaxed">Cada nó tem apenas um filho (lista encadeada)</p>
+                  <h4 className="text-xl font-semibold text-red-300 mb-4">🔴 Red-Black Tree</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">BST auto-balanceável com nós coloridos (vermelho/preto)</p>
+                  <div className="bg-gray-900/80 p-4 rounded font-mono text-sm text-center text-cyan-300 border border-gray-600 mb-3">
+                    <div className="mb-2 text-red-400">10(R)</div>
+                    <div className="mb-2">/ \</div>
+                    <div className="mb-2">5(B) 15(B)</div>
+                    <div className="mb-2">/ \ / \</div>
+                    <div>3(R) 7(R) 12(R) 20(R)</div>
+                  </div>
                   <div className="bg-red-900/60 p-3 rounded border border-red-500/30">
-                    <span className="text-red-200 font-semibold">❌ Pior caso: O(n)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-gray-400/40">
-                <h4 className="text-2xl font-semibold text-white mb-4">⚡ Comparação de Performance</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-green-900/60 p-4 rounded-lg border border-green-500/40">
-                    <strong className="text-green-200">Balanceada</strong>
-                    <div className="text-green-100">Busca: O(log n)</div>
-                  </div>
-                  <div className="bg-red-900/60 p-4 rounded-lg border border-red-500/40">
-                    <strong className="text-red-200">Degenerada</strong>
-                    <div className="text-red-100">Busca: O(n)</div>
+                    <span className="text-red-200 text-sm">⚡ Garantido O(log n)</span>
                   </div>
                 </div>
               </div>
             </motion.div>
+
+            {/* Seção 2: Formas de Árvores Binárias */}
+            <motion.div
+              variants={slideVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.4 }}
+              className="max-w-7xl mx-auto mb-8"
+            >
+              <div className="bg-gradient-to-r from-blue-900/50 to-teal-900/50 rounded-xl p-6 mb-8 border border-blue-400/30">
+                <h3 className="text-3xl font-bold text-blue-200 mb-4 text-center">
+                  📐 FORMAS de Árvores Binárias
+                </h3>
+                <p className="text-gray-200 text-lg text-center leading-relaxed">
+                  Classificações baseadas na estrutura e preenchimento dos nós
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-blue-300 mb-4">📏 Árvore Completa</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Todos os níveis preenchidos, exceto possivelmente o último (preenchido da esquerda)</p>
+                  <div className="bg-blue-900/60 p-3 rounded border border-blue-500/30">
+                    <span className="text-blue-200 text-sm">📍 Ideal para heaps</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-yellow-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-yellow-300 mb-4">🏆 Árvore Cheia (Full)</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Cada nó tem exatamente 0 ou 2 filhos (nunca apenas 1)</p>
+                  <div className="bg-yellow-900/60 p-3 rounded border border-yellow-500/30">
+                    <span className="text-yellow-200 text-sm">🔸 Estrutura binária pura</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-indigo-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-indigo-300 mb-4">💎 Árvore Perfeita</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Cheia E completa simultaneamente - todas as folhas no mesmo nível</p>
+                  <div className="bg-indigo-900/60 p-3 rounded border border-indigo-500/30">
+                    <span className="text-indigo-200 text-sm">🌟 Forma ideal</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-emerald-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-emerald-300 mb-4">⚖️ Árvore Balanceada</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Altura das subárvores esquerda e direita difere por no máximo 1</p>
+                  <div className="bg-emerald-900/60 p-3 rounded border border-emerald-500/30">
+                    <span className="text-emerald-200 text-sm">🎯 Performance O(log n)</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-orange-300 mb-4">📉 Árvore Degenerada</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Cada nó tem apenas um filho - equivale a uma lista encadeada</p>
+                  <div className="bg-orange-900/60 p-3 rounded border border-orange-500/30">
+                    <span className="text-orange-200 text-sm font-semibold">❌ Pior caso: O(n)</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-slate-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                  <h4 className="text-xl font-semibold text-slate-300 mb-4">🌿 Árvore Esparsa</h4>
+                  <p className="text-gray-100 mb-4 leading-relaxed">Muitos nós com apenas um filho ou vazios - baixa densidade</p>
+                  <div className="bg-slate-900/60 p-3 rounded border border-slate-500/30">
+                    <span className="text-slate-200 text-sm">📊 Baixa eficiência</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+
           </div>
         );
 
@@ -603,10 +799,10 @@ Node* insertCorrect(Node* root, int value) {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.2 }}
-              className="max-w-7xl mx-auto"
+              className="w-full mx-auto"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <div className="grid grid-cols-1 gap-6">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-orange-300 mb-4">➕ Inserção</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-orange-200">Complexidade:</strong> O(log n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Compara valor com nó atual e insere recursivamente na subárvore apropriada</p>
@@ -621,7 +817,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('insert')}
+                    onClick={() => toggleCode('insert')} type='button'
                   >
                     {showCode.insert ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -647,7 +843,7 @@ Node* insertCorrect(Node* root, int value) {
                   )}
                 </div>
 
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-blue-300 mb-4">🔍 Busca</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-blue-200">Complexidade:</strong> O(log n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Elimina metade dos nós a cada comparação</p>
@@ -662,7 +858,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('search')}
+                    onClick={() => toggleCode('search')} type='button'
                   >
                     {showCode.search ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -688,7 +884,7 @@ Node* insertCorrect(Node* root, int value) {
                   )}
                 </div>
 
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-green-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-green-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-green-300 mb-4">🚶 Percursos</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-green-200">Complexidade:</strong> O(n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Visita todos os nós seguindo diferentes ordens</p>
@@ -702,7 +898,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('traversal')}
+                    onClick={() => toggleCode('traversal')} type='button'
                   >
                     {showCode.traversal ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -728,7 +924,7 @@ Node* insertCorrect(Node* root, int value) {
                   )}
                 </div>
 
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-red-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-red-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-red-300 mb-4">🗑️ Remoção</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-red-200">Complexidade:</strong> O(log n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Remove nó mantendo propriedade BST</p>
@@ -742,7 +938,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('delete')}
+                    onClick={() => toggleCode('delete')} type='button'
                   >
                     {showCode.delete ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -768,7 +964,7 @@ Node* insertCorrect(Node* root, int value) {
                   )}
                 </div>
 
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-purple-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-purple-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-purple-300 mb-4">📏 Altura</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-purple-200">Complexidade:</strong> O(n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Calcula a maior distância da raiz às folhas</p>
@@ -782,7 +978,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('height')}
+                    onClick={() => toggleCode('height')} type='button'
                   >
                     {showCode.height ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -808,7 +1004,7 @@ Node* insertCorrect(Node* root, int value) {
                   )}
                 </div>
 
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-indigo-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-indigo-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
                   <h3 className="text-xl font-semibold text-indigo-300 mb-4">⚖️ Verificar Balanceamento</h3>
                   <p className="text-gray-100 mb-2"><strong className="text-indigo-200">Complexidade:</strong> O(n)</p>
                   <p className="text-gray-100 mb-4 leading-relaxed">Verifica se diferença de alturas ≤ 1</p>
@@ -822,7 +1018,7 @@ Node* insertCorrect(Node* root, int value) {
                   </div>
                   <button
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded transition-colors"
-                    onClick={() => toggleCode('balance')}
+                    onClick={() => toggleCode('balance')} type='button'
                   >
                     {showCode.balance ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                   </button>
@@ -853,9 +1049,9 @@ Node* insertCorrect(Node* root, int value) {
                 <div className="w-full max-w-5xl">
                   <div className="mb-4 flex flex-col items-center">
                     <button
-                      className={`flex items-center gap-2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-semibold shadow-lg transition-all duration-200 text-lg mb-2 focus:outline-none focus:ring-2 focus:ring-teal-400`}
+                      className={"flex items-center gap-2 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-semibold shadow-lg transition-all duration-200 text-lg mb-2 focus:outline-none focus:ring-2 focus:ring-teal-400"}
                       aria-expanded={showCode.allC || false}
-                      onClick={() => toggleCode('allC')}
+                      onClick={() => toggleCode('allC')} type='button'
                     >
                       <span className={`transition-transform duration-200 ${showCode.allC ? 'rotate-90' : ''}`}>▶</span>
                       <span>Implementações Fundamentais em C</span>
@@ -1050,51 +1246,6 @@ int main() {
           </div>
         );
 
-      case 'dungeon':
-        return (
-          <div className="p-8 min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900">
-            <motion.h2
-              variants={slideVariants}
-              initial="hidden"
-              animate="visible"
-              className="text-4xl font-bold text-white mb-8 text-center"
-            >
-              🏰 O Explorador de Masmorras Binárias
-            </motion.h2>
-            <motion.div
-              variants={slideVariants}
-              initial="hidden"
-              animate="visible"
-              transition={{ delay: 0.2 }}
-              className="max-w-4xl mx-auto space-y-6"
-            >
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-amber-400/40">
-                <h3 className="text-2xl font-semibold text-amber-300 mb-4">🗺️ A Aventura</h3>
-                <p className="text-gray-100 leading-relaxed">
-                  Imagine uma masmorra misteriosa onde cada sala segue regras específicas.
-                  Cada sala pode ter no máximo duas saídas: esquerda e direita.
-                  O arquiteto genial organizou as salas de forma que você nunca se perde!
-                </p>
-              </div>
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40">
-                <h3 className="text-2xl font-semibold text-orange-300 mb-4">🧭 A Regra Mágica</h3>
-                <p className="text-gray-100 leading-relaxed">
-                  Se você procura o tesouro 45 e está na sala 30, vá para a direita.
-                  Se procura o tesouro 15, vá para a esquerda.
-                  Esta organização permite encontrar qualquer tesouro rapidamente!
-                </p>
-              </div>
-              <div className="bg-gradient-to-r from-yellow-900/60 to-amber-900/60 rounded-lg p-6 shadow-lg border border-yellow-400/40">
-                <h3 className="text-2xl font-semibold text-yellow-200 mb-4">✨ A Revelação</h3>
-                <p className="text-gray-100 leading-relaxed">
-                  Esta masmorra aparentemente mágica segue os princípios de uma
-                  <strong className="text-yellow-200"> árvore binária de busca</strong>!
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        );
-
       case 'errors':
         return (
           <div className="p-8 min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900">
@@ -1111,56 +1262,30 @@ int main() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.2 }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto"
+              className="grid grid-cols-1 gap-6 w-full mx-auto"
             >
-              {/* Vazamento de Memória */}
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-red-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <h3 className="text-xl font-semibold text-red-300 mb-4">💾 Vazamento de Memória</h3>
-                <p className="text-gray-100 mb-2 leading-relaxed">Não liberar nós alocados dinamicamente (usando `malloc`) quando não são mais necessários.</p>
-                <p className="text-gray-100 mb-4 leading-relaxed"><strong className="text-red-200">Consequência:</strong> Consumo excessivo de memória, podendo levar a falhas no programa.</p>
+              {/* Erro 1: Verificação NULL */}
+              <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-red-400/40 hover:shadow-xl transition-all duration-300">
+                <h3 className="text-xl font-semibold text-red-300 mb-4">🚫 Verificação NULL</h3>
+                <p className="text-gray-100 mb-3 leading-relaxed text-sm">
+                  <strong className="text-red-200">O problema:</strong> Acessar <code className="bg-red-900/50 px-1 rounded text-xs">node-&gt;data</code>
+                  quando <code className="bg-red-900/50 px-1 rounded text-xs">node</code> é NULL causa
+                  <span className="text-red-400 font-bold"> Segmentation Fault</span>.
+                </p>
+                <p className="text-gray-100 mb-4 leading-relaxed text-sm">
+                  <strong className="text-red-200">Solução:</strong> Sempre verificar <code className="bg-green-900/50 px-1 rounded text-xs">if (node != NULL)</code>
+                  antes de acessar.
+                </p>
                 <button
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors mb-3"
-                  onClick={() => toggleCode('memoryLeak')}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors text-sm"
+                  onClick={() => toggleCode('nullPointer')} type='button'
                 >
-                  {showCode.memoryLeak ? '👁️ Ocultar Implementações' : '📋 Ver Implementações'}
-                </button>
-                {showCode.memoryLeak && (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <h4 className="text-md font-semibold text-red-200 mb-2">❌ Incorreto:</h4>
-                      <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
-                        <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.memoryLeakIncorrect}
-                        </SyntaxHighlighter>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-md font-semibold text-green-300 mb-2">✅ Correto:</h4>
-                      <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
-                        <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.memoryLeakCorrect}
-                        </SyntaxHighlighter>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Ponteiros Nulos */}
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <h3 className="text-xl font-semibold text-orange-300 mb-4">🚫 Acesso a Ponteiros Nulos</h3>
-                <p className="text-gray-100 mb-2 leading-relaxed">Tentar acessar membros de um ponteiro que é `NULL` (por exemplo, `node-&gt;data` quando `node` é `NULL`).</p>
-                <p className="text-gray-100 mb-4 leading-relaxed"><strong className="text-orange-200">Consequência:</strong> Erro de segmentação (segmentation fault) e crash do programa.</p>
-                <button
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded transition-colors mb-3"
-                  onClick={() => toggleCode('nullPointer')}
-                >
-                  {showCode.nullPointer ? '👁️ Ocultar Implementações' : '📋 Ver Implementações'}
+                  {showCode.nullPointer ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                 </button>
                 {showCode.nullPointer && (
-                  <div className="mt-4 space-y-4">
+                  <div className="mt-4 space-y-3">
                     <div>
-                      <h4 className="text-md font-semibold text-red-200 mb-2">❌ Incorreto:</h4>
+                      <h4 className="text-sm font-semibold text-red-200 mb-2">❌ Código que Falha:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
                           {implementationCodes.nullPointerIncorrect}
@@ -1168,7 +1293,7 @@ int main() {
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-green-300 mb-2">✅ Correto:</h4>
+                      <h4 className="text-sm font-semibold text-green-300 mb-2">✅ Código Correto:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
                           {implementationCodes.nullPointerCorrect}
@@ -1179,32 +1304,38 @@ int main() {
                 )}
               </div>
 
-              {/* Recursão Incorreta */}
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <h3 className="text-xl font-semibold text-blue-300 mb-4">🔄 Recursão Mal Definida</h3>
-                <p className="text-gray-100 mb-2 leading-relaxed">Caso base da recursão ausente, incorreto ou inalcançável.</p>
-                <p className="text-gray-100 mb-4 leading-relaxed"><strong className="text-blue-200">Consequência:</strong> Estouro de pilha (stack overflow) ou comportamento incorreto do algoritmo.</p>
+              {/* Erro 2: Vazamento de Memória */}
+              <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-orange-400/40 hover:shadow-xl transition-all duration-300">
+                <h3 className="text-xl font-semibold text-orange-300 mb-4">💾 Vazamento de Memória</h3>
+                <p className="text-gray-100 mb-3 leading-relaxed text-sm">
+                  <strong className="text-orange-200">O problema:</strong> Usar <code className="bg-orange-900/50 px-1 rounded text-xs">malloc()</code>
+                  sem <code className="bg-orange-900/50 px-1 rounded text-xs">free()</code> deixa memória ocupada para sempre.
+                </p>
+                <p className="text-gray-100 mb-4 leading-relaxed text-sm">
+                  <strong className="text-orange-200">Solução:</strong> Para cada <code className="bg-green-900/50 px-1 rounded text-xs">malloc()</code>
+                  deve haver um <code className="bg-green-900/50 px-1 rounded text-xs">free()</code> correspondente.
+                </p>
                 <button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors mb-3"
-                  onClick={() => toggleCode('incorrectRecursion')}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded transition-colors text-sm"
+                  onClick={() => toggleCode('memoryLeak')} type='button'
                 >
-                  {showCode.incorrectRecursion ? '👁️ Ocultar Implementações' : '📋 Ver Implementações'}
+                  {showCode.memoryLeak ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                 </button>
-                {showCode.incorrectRecursion && (
-                  <div className="mt-4 space-y-4">
+                {showCode.memoryLeak && (
+                  <div className="mt-4 space-y-3">
                     <div>
-                      <h4 className="text-md font-semibold text-red-200 mb-2">❌ Incorreto:</h4>
+                      <h4 className="text-sm font-semibold text-red-200 mb-2">❌ Código que Vaza:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.incorrectRecursionIncorrect}
+                          {implementationCodes.memoryLeakIncorrect}
                         </SyntaxHighlighter>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-green-300 mb-2">✅ Correto:</h4>
+                      <h4 className="text-sm font-semibold text-green-300 mb-2">✅ Código Correto:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.incorrectRecursionCorrect}
+                          {implementationCodes.memoryLeakCorrect}
                         </SyntaxHighlighter>
                       </div>
                     </div>
@@ -1212,32 +1343,38 @@ int main() {
                 )}
               </div>
 
-              {/* Violação de Propriedade BST */}
-              <div className="bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-purple-400/40 hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <h3 className="text-xl font-semibold text-purple-300 mb-4">📏 Violação da Propriedade BST</h3>
-                <p className="text-gray-100 mb-2 leading-relaxed">Inserir ou remover nós de forma que a propriedade da Árvore Binária de Busca (valores menores à esquerda, maiores à direita) seja quebrada.</p>
-                <p className="text-gray-100 mb-4 leading-relaxed"><strong className="text-purple-200">Consequência:</strong> Perda da eficiência nas operações (busca pode se tornar O(n)) e resultados incorretos.</p>
+              {/* Erro 3: Recursão sem Caso Base */}
+              <div className="w-full bg-slate-800/80 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-blue-400/40 hover:shadow-xl transition-all duration-300">
+                <h3 className="text-xl font-semibold text-blue-300 mb-4">🔄 Recursão Infinita</h3>
+                <p className="text-gray-100 mb-3 leading-relaxed text-sm">
+                  <strong className="text-blue-200">O problema:</strong> Função recursiva sem caso base gera
+                  <span className="text-blue-400 font-bold">Stack Overflow</span> em milissegundos.
+                </p>
+                <p className="text-gray-100 mb-4 leading-relaxed text-sm">
+                  <strong className="text-blue-200">Solução:</strong> Sempre definir quando a recursão deve parar
+                  com <code className="bg-green-900/50 px-1 rounded text-xs">if (condição) return;</code>
+                </p>
                 <button
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded transition-colors mb-3"
-                  onClick={() => toggleCode('bstViolation')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition-colors text-sm"
+                  onClick={() => toggleCode('incorrectRecursion')} type='button'
                 >
-                  {showCode.bstViolation ? '👁️ Ocultar Implementações' : '📋 Ver Implementações'}
+                  {showCode.incorrectRecursion ? '👁️ Ocultar Código' : '📋 Ver Implementação'}
                 </button>
-                {showCode.bstViolation && (
-                  <div className="mt-4 space-y-4">
+                {showCode.incorrectRecursion && (
+                  <div className="mt-4 space-y-3">
                     <div>
-                      <h4 className="text-md font-semibold text-red-200 mb-2">❌ Incorreto:</h4>
+                      <h4 className="text-sm font-semibold text-red-200 mb-2">❌ Código que Trava:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.bstViolationIncorrect}
+                          {implementationCodes.incorrectRecursionIncorrect}
                         </SyntaxHighlighter>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-md font-semibold text-green-300 mb-2">✅ Correto:</h4>
+                      <h4 className="text-sm font-semibold text-green-300 mb-2">✅ Código Correto:</h4>
                       <div className="bg-gray-900/90 rounded-lg overflow-hidden border border-gray-600">
                         <SyntaxHighlighter language="c" style={vscDarkPlus} customStyle={syntaxHighlighterStyle} showLineNumbers>
-                          {implementationCodes.bstViolationCorrect}
+                          {implementationCodes.incorrectRecursionCorrect}
                         </SyntaxHighlighter>
                       </div>
                     </div>
@@ -1248,54 +1385,244 @@ int main() {
           </div>
         );
 
-      case 'prerequisites':
+      case 'recap':
         return (
-          <div className="p-8 min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+          <div className="p-8 min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 overflow-y-auto">
             <motion.h2
               variants={slideVariants}
               initial="hidden"
               animate="visible"
-              className="text-4xl font-bold text-white mb-8 text-center"
+              className="text-4xl font-bold text-white mb-6 text-center"
             >
-              🔑 Conhecimentos Essenciais
+              Recapitulando: A Jornada das Estruturas de Dados
             </motion.h2>
+
             <motion.div
               variants={slideVariants}
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.2 }}
-              className="max-w-4xl mx-auto space-y-4"
-            >              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all flex items-center">
-                <span className="text-4xl mr-4">📍</span>
-                <div>
-                  <strong className="text-indigo-400 text-lg">Ponteiros em C</strong>
-                  <p className="text-gray-300">Fundamentais para navegação na árvore</p>
+              className="max-w-7xl mx-auto space-y-4"
+            >
+
+              {/* Layout em Grid - Primeira Linha */}
+              <motion.div
+                className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                {/* Tipos Primitivos */}
+                <div className="bg-gradient-to-r from-blue-900/40 to-blue-800/40 rounded-lg p-4 border border-blue-400/30 backdrop-blur-sm">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl mr-3">🧱</span>
+                    <h3 className="text-xl font-bold text-blue-300">Tipos Primitivos</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-blue-800/30 rounded p-2 text-center">
+                      <strong className="text-blue-200 text-sm">int, float</strong>
+                      <p className="text-gray-300 text-xs">Números</p>
+                    </div>
+                    <div className="bg-blue-800/30 rounded p-2 text-center">
+                      <strong className="text-blue-200 text-sm">char</strong>
+                      <p className="text-gray-300 text-xs">Caracteres</p>
+                    </div>
+                    <div className="bg-blue-800/30 rounded p-2 text-center">
+                      <strong className="text-blue-200 text-sm">boolean</strong>
+                      <p className="text-gray-300 text-xs">V ou F</p>
+                    </div>
+                  </div>
                 </div>
-              </div>              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all flex items-center">
-                <span className="text-4xl mr-4">🧠</span>
-                <div>
-                  <strong className="text-blue-400 text-lg">Alocação Dinâmica</strong>
-                  <p className="text-gray-300">malloc/free para gerenciar nós</p>
+
+                {/* Tipos Compostos */}
+                <div className="bg-gradient-to-r from-green-900/40 to-green-800/40 rounded-lg p-4 border border-green-400/30 backdrop-blur-sm">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl mr-3">📦</span>
+                    <h3 className="text-xl font-bold text-green-300">Tipos Compostos</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-green-800/30 rounded p-2">
+                      <strong className="text-green-200 text-sm">Arrays</strong>
+                      <p className="text-gray-300 text-xs">Espaço contíguo, tamanho fixo</p>
+                    </div>
+                    <div className="bg-green-800/30 rounded p-2">
+                      <strong className="text-green-200 text-sm">Tuplas</strong>
+                      <p className="text-gray-300 text-xs">Diferentes tipos</p>
+                    </div>
+                  </div>
                 </div>
-              </div>              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all flex items-center">
-                <span className="text-4xl mr-4">🏗️</span>
-                <div>
-                  <strong className="text-green-400 text-lg">Estruturas (struct)</strong>
-                  <p className="text-gray-300">Representação dos nós</p>
+              </motion.div>
+
+              {/* Segunda Linha */}
+              <motion.div
+                className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                {/* Tipos Concretos */}
+                <div className="bg-gradient-to-r from-purple-900/40 to-purple-800/40 rounded-lg p-4 border border-purple-400/30 backdrop-blur-sm">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl mr-3">🔗</span>
+                    <h3 className="text-xl font-bold text-purple-300">Tipos Concretos</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="bg-purple-800/30 rounded p-2">
+                      <strong className="text-purple-200 text-sm">Listas Ligadas</strong>
+                      <p className="text-gray-300 text-xs">Nós conectados por ponteiros</p>
+                    </div>
+                    <div className="bg-purple-800/30 rounded p-2">
+                      <strong className="text-purple-200 text-sm">Listas Duplamente Ligadas</strong>
+                      <p className="text-gray-300 text-xs">Ponteiros prev e next</p>
+                    </div>
+                    <div className="bg-purple-800/30 rounded p-2">
+                      <strong className="text-purple-200 text-sm">Listas Circulares</strong>
+                      <p className="text-gray-300 text-xs">Último nó aponta para o primeiro</p>
+                    </div>
+                    <div className="bg-purple-800/30 rounded p-2">
+                      <strong className="text-purple-200 text-sm">Arrays Dinâmicos</strong>
+                      <p className="text-gray-300 text-xs">Realocação automática (vectors)</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 p-2 bg-purple-900/30 rounded text-xs">
+                    <p className="text-gray-300"><strong>Conceito:</strong> Implementação específica e detalhada da estrutura de dados</p>
+                    <p className="text-gray-300 mt-1"><strong>Nota:</strong> Árvores binárias são implementações específicas do TAD "Árvore"</p>
+                  </div>
                 </div>
-              </div>              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all flex items-center">
-                <span className="text-4xl mr-4">🔄</span>
-                <div>
-                  <strong className="text-purple-400 text-lg">Recursão</strong>
-                  <p className="text-gray-300">Crucial para operações em árvores</p>
+
+                {/* Tipos Abstratos */}
+                <div className="bg-gradient-to-r from-orange-900/40 to-orange-800/40 rounded-lg p-4 border border-orange-400/30 backdrop-blur-sm">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl mr-3">🎭</span>
+                    <h3 className="text-xl font-bold text-orange-300">Tipos Abstratos de Dados (TADs)</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-orange-800/30 rounded p-2">
+                      <strong className="text-orange-200 text-sm">Pilhas (Stack)</strong>
+                      <p className="text-gray-300 text-xs">LIFO - push/pop</p>
+                    </div>
+                    <div className="bg-orange-800/30 rounded p-2">
+                      <strong className="text-orange-200 text-sm">Filas (Queue)</strong>
+                      <p className="text-gray-300 text-xs">FIFO - enqueue/dequeue</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-orange-800/30 rounded p-2">
+                      <strong className="text-orange-200 text-sm">Hash Tables</strong>
+                      <p className="text-gray-300 text-xs">Chave-valor - insert/search/delete</p>
+                    </div>
+                    <div className="bg-orange-800/30 rounded p-2">
+                      <strong className="text-orange-200 text-sm">Árvores</strong>
+                      <p className="text-gray-300 text-xs">Hierárquica - percorrer/buscar</p>
+                      <p className="text-gray-400 text-xs">*traverse = visitar todos os nós</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 p-2 bg-orange-900/30 rounded text-xs">
+                    <p className="text-gray-300"><strong>Conceito:</strong> Definem operações e comportamento, não implementação específica</p>
+                    <p className="text-gray-300 mt-1"><strong>Exemplos:</strong> Stack pode ser array ou lista; Hash Table pode usar chaining ou open addressing</p>
+                  </div>
                 </div>
-              </div>              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all flex items-center">
-                <span className="text-4xl mr-4">📊</span>
-                <div>
-                  <strong className="text-orange-400 text-lg">Big O Notation</strong>
-                  <p className="text-gray-300">Para análise de complexidade</p>
+              </motion.div>
+
+              {/* Terceira Linha - Divisão Linear vs Não-Linear */}
+              <motion.div
+                className="bg-gradient-to-r from-red-900/40 to-red-800/40 rounded-lg p-4 border border-red-400/30 backdrop-blur-sm"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <div className="flex items-center mb-3">
+                  <span className="text-2xl mr-3">🌐</span>
+                  <h3 className="text-xl font-bold text-red-300">A Grande Divisão: Linear vs Não-Linear</h3>
                 </div>
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-red-800/30 rounded p-3">
+                    <h4 className="text-red-200 font-semibold mb-2 text-sm">📏 Estruturas Lineares</h4>
+                    <div className="text-gray-300 text-xs space-y-1">
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded mr-1">Arrays</span>
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded mr-1">Listas</span>
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded mr-1">Pilhas</span>
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded">Filas</span>
+                    </div>
+                    <p className="text-gray-400 text-xs mt-2">Dados organizados sequencialmente</p>
+                  </div>
+                  <div className="bg-red-900/30 rounded p-3">
+                    <h4 className="text-red-200 font-semibold mb-2 text-sm">🕸️ Estruturas Não-Lineares</h4>
+                    <div className="text-gray-300 text-xs space-y-1">
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded mr-1">Grafos</span>
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded mr-1">Árvores*</span>
+                      <span className="inline-block bg-red-700/30 px-2 py-1 rounded">Hash Tables*</span>
+                    </div>
+                    <p className="text-gray-400 text-xs mt-2">Relacionamentos hierárquicos/complexos</p>
+                    <p className="text-gray-400 text-xs">*Também são Tipos Abstratos de Dados</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Chegando em Árvores */}
+              <motion.div
+                className="bg-gradient-to-r from-emerald-900/40 to-emerald-800/40 rounded-lg p-4 border border-emerald-400/30 backdrop-blur-sm"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <div className="flex items-center mb-3">
+                  <span className="text-2xl mr-3">🌳</span>
+                  <h3 className="text-xl font-bold text-emerald-300">E Finalmente... Árvores!</h3>
+                </div>
+                <div className="bg-emerald-800/30 rounded p-3">
+                  <p className="text-gray-300 text-sm">
+                    Após dominar arrays, listas ligadas e hash tables, chegamos às <strong className="text-emerald-200">árvores</strong> -
+                    uma estrutura não-linear que combina organização hierárquica e eficiência de busca.
+                  </p>
+                  <div className="mt-2 p-2 bg-emerald-900/30 rounded">
+                    <p className="text-emerald-200 text-xs font-semibold">
+                      Uma árvore é um grafo não-direcionado, acíclico e conectado - um caso especial de grafo!
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Requisitos Fundamentais */}
+              <motion.div
+                className="bg-gradient-to-r from-indigo-900/40 to-indigo-800/40 rounded-lg p-4 border border-indigo-400/30 backdrop-blur-sm"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+              >
+                <div className="flex items-center mb-3">
+                  <span className="text-2xl mr-3">⚙️</span>
+                  <h3 className="text-xl font-bold text-indigo-300">Requisitos Fundamentais</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="bg-indigo-800/30 rounded p-2 text-center">
+                    <div className="text-lg mb-1">🧠</div>
+                    <strong className="text-indigo-200 text-sm block">Ponteiros em C</strong>
+                    <p className="text-gray-300 text-xs">Navegação na árvore</p>
+                  </div>
+                  <div className="bg-indigo-800/30 rounded p-2 text-center">
+                    <div className="text-lg mb-1">🏗️</div>
+                    <strong className="text-indigo-200 text-sm block">Alocação Dinâmica</strong>
+                    <p className="text-gray-300 text-xs">malloc/free para nós</p>
+                  </div>
+                  <div className="bg-indigo-800/30 rounded p-2 text-center">
+                    <div className="text-lg mb-1">📊</div>
+                    <strong className="text-indigo-200 text-sm block">Estruturas (struct)</strong>
+                    <p className="text-gray-300 text-xs">Representação dos nós</p>
+                  </div>
+                  <div className="bg-indigo-800/30 rounded p-2 text-center">
+                    <div className="text-lg mb-1">🔄</div>
+                    <strong className="text-indigo-200 text-sm block">Recursão</strong>
+                    <p className="text-gray-300 text-xs">Crucial para operações</p>
+                  </div>
+                  <div className="bg-indigo-800/30 rounded p-2 text-center">
+                    <div className="text-lg mb-1">📈</div>
+                    <strong className="text-indigo-200 text-sm block">Big O Notation</strong>
+                    <p className="text-gray-300 text-xs">Análise de complexidade</p>
+                  </div>
+                </div>
+              </motion.div>
+
             </motion.div>
           </div>
         )
@@ -1309,142 +1636,347 @@ int main() {
               animate="visible"
               className="text-4xl font-bold text-white mb-8 text-center"
             >
-              📊 Análise de Complexidade
+              📊 Análise de Complexidade: BST vs AVL vs Red-Black
             </motion.h2>
             <motion.div
               variants={slideVariants}
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.2 }}
-              className="max-w-6xl mx-auto"
-            >              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              className="max-w-7xl mx-auto space-y-8"
+            >
+              {/* Comparação das três estruturas */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
-                  <h3 className="text-2xl font-semibold text-green-400 mb-6">🌳 Árvore Balanceada</h3>
+                  <h3 className="text-2xl font-semibold text-blue-400 mb-6 text-center">🌳 BST (Binary Search Tree)</h3>
                   <div className="space-y-3">
+                    <div className="text-center mb-4">
+                      <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-sm">Árvore Básica</span>
+                    </div>
                     <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
                       <span className="font-medium text-gray-300">Busca:</span>
-                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                      <div className="text-right">
+                        <div className="font-mono text-green-400 font-bold">O(log n) avg</div>
+                        <div className="font-mono text-red-400 text-sm">O(n) worst</div>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
                       <span className="font-medium text-gray-300">Inserção:</span>
-                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                      <div className="text-right">
+                        <div className="font-mono text-green-400 font-bold">O(log n) avg</div>
+                        <div className="font-mono text-red-400 text-sm">O(n) worst</div>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
                       <span className="font-medium text-gray-300">Remoção:</span>
-                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                      <div className="text-right">
+                        <div className="font-mono text-green-400 font-bold">O(log n) avg</div>
+                        <div className="font-mono text-red-400 text-sm">O(n) worst</div>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
-                      <span className="font-medium text-gray-300">Percurso:</span>
-                      <span className="font-mono text-green-400 font-bold">O(n)</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
-                  <h3 className="text-2xl font-semibold text-red-400 mb-6">📏 Árvore Desbalanceada</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
-                      <span className="font-medium text-gray-300">Busca:</span>
-                      <span className="font-mono text-red-400 font-bold">O(n)</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
-                      <span className="font-medium text-gray-300">Inserção:</span>
-                      <span className="font-mono text-red-400 font-bold">O(n)</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
-                      <span className="font-medium text-gray-300">Remoção:</span>
-                      <span className="font-mono text-red-400 font-bold">O(n)</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
-                      <span className="font-medium text-gray-300">Percurso:</span>
+                      <span className="font-medium text-gray-300">Espaço:</span>
                       <span className="font-mono text-gray-400 font-bold">O(n)</span>
                     </div>
                   </div>
+                  <div className="mt-4 p-3 bg-slate-700 rounded">
+                    <p className="text-gray-300 text-sm">
+                      <strong className="text-red-400">Problema:</strong> Pode degenerar em lista linear (O(n))
+                    </p>
+                  </div>
                 </div>
-              </div>              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
-                <h4 className="text-2xl font-semibold text-blue-400 mb-4">💡 Exemplo Prático</h4>
-                <p className="text-gray-300 mb-4">Com 1 milhão de elementos:</p>
-                <ul className="space-y-2 text-gray-300">
-                  <li className="flex items-center">
-                    <span className="w-3 h-3 bg-green-500 rounded-full mr-3"></span>
-                    <strong className="text-green-400">Árvore balanceada:</strong> ~20 comparações
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-3 h-3 bg-red-500 rounded-full mr-3"></span>
-                    <strong className="text-red-400">Árvore desbalanceada:</strong> até 1.000.000 comparações
-                  </li>
-                </ul>
+
+                <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-green-600">
+                  <h3 className="text-2xl font-semibold text-green-400 mb-6 text-center">⚖️ AVL Tree</h3>
+                  <div className="space-y-3">
+                    <div className="text-center mb-4">
+                      <span className="px-3 py-1 bg-green-600 text-white rounded-full text-sm">Auto-Balanceada</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Busca:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Inserção:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Remoção:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Espaço:</span>
+                      <span className="font-mono text-gray-400 font-bold">O(n)</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-green-900/30 rounded">
+                    <p className="text-gray-300 text-sm">
+                      <strong className="text-green-400">Vantagem:</strong> Garantia de O(log n) para todas as operações
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-red-600">
+                  <h3 className="text-2xl font-semibold text-red-400 mb-6 text-center">🔴⚫ Red-Black Tree</h3>
+                  <div className="space-y-3">
+                    <div className="text-center mb-4">
+                      <span className="px-3 py-1 bg-red-600 text-white rounded-full text-sm">Balanceamento Relaxado</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Busca:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Inserção:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Remoção:</span>
+                      <span className="font-mono text-green-400 font-bold">O(log n)</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-700 p-3 rounded">
+                      <span className="font-medium text-gray-300">Espaço:</span>
+                      <span className="font-mono text-gray-400 font-bold">O(n)</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-red-900/30 rounded">
+                    <p className="text-gray-300 text-sm">
+                      <strong className="text-red-400">Vantagem:</strong> Menos rotações que AVL
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Por que AVL e Red-Black foram criadas? */}
+              <div className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 rounded-lg p-6 shadow-lg border border-purple-600">
+                <h3 className="text-2xl font-semibold text-purple-400 mb-6 text-center">
+                  🤔 Por que AVL e Red-Black Trees foram criadas?
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="bg-slate-800/70 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-red-400 mb-2">❌ Problema do BST Simples</h4>
+                      <ul className="space-y-2 text-gray-300 text-sm">
+                        <li>• Inserção ordenada → Lista linear</li>
+                        <li>• Performance degrada para O(n)</li>
+                        <li>• Não há garantias de balanceamento</li>
+                        <li>• Dependente da ordem de inserção</li>
+                      </ul>
+                    </div>
+                    <div className="bg-slate-800/70 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-green-400 mb-2">✅ Solução: Auto-Balanceamento</h4>
+                      <ul className="space-y-2 text-gray-300 text-sm">
+                        <li>• Garantia de altura O(log n)</li>
+                        <li>• Performance consistente</li>
+                        <li>• Independe da ordem de inserção</li>
+                        <li>• Rotações mantêm propriedades</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-slate-800/70 p-4 rounded-lg">
+                      <h4 className="text-lg font-semibold text-blue-400 mb-2">🎯 AVL vs Red-Black</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <strong className="text-green-400">AVL:</strong>
+                          <ul className="text-gray-300 text-sm ml-4">
+                            <li>• Mais rigidamente balanceada</li>
+                            <li>• Melhor para muitas buscas</li>
+                            <li>• Mais rotações em inserção/remoção</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <strong className="text-red-400">Red-Black:</strong>
+                          <ul className="text-gray-300 text-sm ml-4">
+                            <li>• Balanceamento mais relaxado</li>
+                            <li>• Menos rotações</li>
+                            <li>• Melhor para muitas inserções/remoções</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comparação prática */}
+              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
+                <h4 className="text-2xl font-semibold text-yellow-400 mb-4">💡 Comparação Prática</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h5 className="text-lg font-semibold text-blue-400 mb-3">Cenário: 1.000.000 elementos</h5>
+                    <div className="space-y-3">
+                      <div className="bg-slate-700 p-3 rounded">
+                        <div className="flex justify-between">
+                          <span className="text-gray-300">BST (pior caso):</span>
+                          <span className="text-red-400 font-mono">1.000.000 ops</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-700 p-3 rounded">
+                        <div className="flex justify-between">
+                          <span className="text-gray-300">AVL Tree:</span>
+                          <span className="text-green-400 font-mono">~20 ops</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-700 p-3 rounded">
+                        <div className="flex justify-between">
+                          <span className="text-gray-300">Red-Black Tree:</span>
+                          <span className="text-green-400 font-mono">~20 ops</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="text-lg font-semibold text-purple-400 mb-3">Uso no Mundo Real</h5>
+                    <div className="space-y-2 text-gray-300 text-sm">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-400">•</span>
+                        <span><strong>AVL:</strong> Bancos de dados, aplicações com muitas consultas</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-red-400">•</span>
+                        <span><strong>Red-Black:</strong> C++ STL map/set, Java TreeMap</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-blue-400">•</span>
+                        <span><strong>BST:</strong> Estruturas simples, prototipagem</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fórmulas matemáticas */}
+              <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
+                <h4 className="text-2xl font-semibold text-cyan-400 mb-4">📐 Garantias Matemáticas</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-slate-700 p-4 rounded">
+                    <h5 className="font-semibold text-blue-400 mb-2">BST</h5>
+                    <p className="text-gray-300 text-sm">Altura: <span className="font-mono text-red-400">O(n)</span> no pior caso</p>
+                    <p className="text-gray-300 text-sm">Pode degenerar em lista</p>
+                  </div>
+                  <div className="bg-slate-700 p-4 rounded">
+                    <h5 className="font-semibold text-green-400 mb-2">AVL</h5>
+                    <p className="text-gray-300 text-sm">Altura: <span className="font-mono text-green-400">≤ 1.44 log₂(n)</span></p>
+                    <p className="text-gray-300 text-sm">|h_left - h_right| ≤ 1</p>
+                  </div>
+                  <div className="bg-slate-700 p-4 rounded">
+                    <h5 className="font-semibold text-red-400 mb-2">Red-Black</h5>
+                    <p className="text-gray-300 text-sm">Altura: <span className="font-mono text-red-400">≤ 2 log₂(n+1)</span></p>
+                    <p className="text-gray-300 text-sm">Caminho mais longo ≤ 2x menor</p>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
         )
-
       case 'conclusion':
         return (
-          <div className="p-8 min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-                       <motion.h2
-              variants={slideVariants}
-              initial="hidden"
-              animate="visible"
-              className="text-4xl font-bold text-white mb-8 text-center"
-            >
-              🎯 Conclusão
-            </motion.h2>
+          <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+            {/* Animated background particles */}
+            <div className="absolute inset-0 opacity-20">
+              {[...Array(50)].map((_, i) => (
+                <motion.div
+                  key={`particle-${i}-${Date.now()}-${Math.random()}`}
+                  className="absolute w-2 h-2 bg-white rounded-full"
+                  initial={{ 
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    opacity: 0
+                  }}
+                  animate={{
+                    y: -100,
+                    opacity: [0, 1, 0],
+                    scale: [0, 1, 0]
+                  }}
+                  transition={{
+                    duration: Math.random() * 3 + 2,
+                    repeat: Number.POSITIVE_INFINITY,
+                    delay: Math.random() * 2
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Main content */}
+            <div className="text-center z-10 relative">
+              {/* Animated title */}
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20,
+                  delay: 0.3
+                }}
+              >
+                <h1 className="text-8xl md:text-[12rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 drop-shadow-2xl mb-8 animate-pulse">
+                  🎉 FIM 🎉
+                </h1>
+              </motion.div>
+
+
+            </div>
+
+            {/* Floating decorative elements */}
             <motion.div
-              variants={slideVariants}
-              initial="hidden"
-              animate="visible"
-              transition={{ delay: 0.2 }}
-              className="max-w-6xl mx-auto"
-            >              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
-                  <h3 className="text-2xl font-semibold text-emerald-400 mb-6">🌟 Pontos Principais</h3>
-                  <ul className="space-y-3 text-gray-300">
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Árvores binárias são fundamentais na ciência da computação
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Organização hierárquica permite buscas extremamente eficientes
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Implementação em C oferece controle total sobre performance
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-emerald-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Aplicações vão desde bancos de dados até inteligência artificial
-                    </li>
-                  </ul>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-600">
-                  <h3 className="text-2xl font-semibold text-teal-400 mb-6">🚀 Próximos Passos</h3>
-                  <ul className="space-y-3 text-gray-300">
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-teal-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Explorar árvores auto-balanceáveis (AVL, Red-Black)
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-teal-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Estudar implementações em sistemas reais
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-teal-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Praticar com diferentes casos de uso
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-teal-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      Aplicar em projetos de desenvolvimento multiplataforma
-                    </li>
-                  </ul>
-                </div>
-              </div>              <div className="bg-gradient-to-r from-slate-700 to-slate-600 rounded-lg p-8 shadow-lg border border-slate-500">
-                <h4 className="text-2xl font-semibold text-white mb-4">💪 Continue Aprendendo!</h4>
-                <p className="text-gray-300 leading-relaxed text-lg">
-                  O domínio de árvores binárias abre portas para algoritmos mais avançados
-                  e prepara você para desafios complexos no desenvolvimento de software multiplataforma.
-                </p>
-              </div>
+              className="absolute top-20 left-20 text-6xl opacity-30"
+              animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+              transition={{ duration: 10, repeat: Number.POSITIVE_INFINITY }}
+            >
+              🌟
+            </motion.div>
+            <motion.div
+              className="absolute bottom-20 right-20 text-5xl opacity-30"
+              animate={{ rotate: -360, y: [-10, 10, -10] }}
+              transition={{ duration: 8, repeat: Number.POSITIVE_INFINITY }}
+            >
+              🎓
+            </motion.div>
+            <motion.div
+              className="absolute top-1/2 left-10 text-4xl opacity-30"
+              animate={{ x: [0, 20, 0], rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY }}
+            >
+              💫
+            </motion.div>
+            <motion.div
+              className="absolute top-1/4 right-10 text-4xl opacity-30"
+              animate={{ y: [0, -20, 0], scale: [1, 1.1, 1] }}
+              transition={{ duration: 7, repeat: Number.POSITIVE_INFINITY }}
+            >
+              🚀
+            </motion.div>
+
+            {/* Confetti effect */}
+            <motion.div
+              className="absolute inset-0 pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 3 }}
+            >
+              {[...Array(30)].map((_, i) => (
+                <motion.div
+                  key={`confetti-${i}-${Math.random()}`}
+                  className="absolute text-2xl"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: -50,
+                  }}
+                  animate={{
+                    y: window.innerHeight + 100,
+                    rotate: Math.random() * 360,
+                  }}
+                  transition={{
+                    duration: Math.random() * 3 + 2,
+                    repeat: Number.POSITIVE_INFINITY,
+                    delay: Math.random() * 2,
+                  }}
+                >
+                  {['🎊', '🎉', '✨', '🌟', '💫'][Math.floor(Math.random() * 5)]}
+                </motion.div>
+              ))}
             </motion.div>
           </div>
         )
@@ -1455,7 +1987,7 @@ int main() {
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto">
+    <div className="w-full h-full">
       {renderCurrentSlide()}
     </div>
   )

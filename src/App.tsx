@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import { BinaryTreeVisualizer } from './components/BinaryTreeVisualizer-new'
-import { DungeonGame } from './components/DungeonGame'
 import { LectureSlides } from './components/LectureSlides'
 import { ControlPanel } from './components/ControlPanel'
 import { Navigation } from './components/Navigation'
@@ -21,63 +20,69 @@ function App() {
   const [currentSection, setCurrentSection] = useState(0)
   const [treeRoot, setTreeRoot] = useState<TreeNodeData | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [gameMode, setGameMode] = useState(false)
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<'inorder' | 'preorder' | 'postorder'>('inorder')
   const [searchingValue, setSearchingValue] = useState<number | undefined>(undefined)
   const [deletingValue, setDeletingValue] = useState<number | undefined>(undefined)
 
-  const sections = [
+  const sections = useMemo(() => [
     'intro',
-    'prerequisites',
+    'recap',
     'concepts',
     'types',
     'operations',
     'applications',
     'interactive',
-    'dungeon',
     'errors',
     'complexity',
     'conclusion'
-  ]
+  ], [])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-      // Usar Intersection Observer seria ideal, mas para simplicidade:
-      const scrollPosition = window.scrollY + window.innerHeight / 2
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollPosition = window.scrollY + window.innerHeight / 2
 
-      // Encontrar qual seção está mais próxima do centro da tela
-      let closestSection = 0
-      let minDistance = Number.POSITIVE_INFINITY
+          // Encontrar qual seção está mais próxima do centro da tela
+          let closestSection = 0
+          let minDistance = Number.POSITIVE_INFINITY
 
-      sections.forEach((sectionId, index) => {
-        const element = document.getElementById(sectionId)
-        if (element) {
-          const elementTop = element.offsetTop
-          const elementBottom = elementTop + element.offsetHeight
-          const elementCenter = elementTop + element.offsetHeight / 2
+          sections.forEach((sectionId, index) => {
+            const element = document.getElementById(sectionId)
+            if (element) {
+              const elementTop = element.offsetTop
+              const elementBottom = elementTop + element.offsetHeight
+              const elementCenter = elementTop + element.offsetHeight / 2
 
-          // Se o scroll está dentro da seção
-          if (scrollPosition >= elementTop && scrollPosition <= elementBottom) {
-            closestSection = index
-            return
-          }
+              // Se o scroll está dentro da seção
+              if (scrollPosition >= elementTop && scrollPosition <= elementBottom) {
+                closestSection = index
+                return
+              }
 
-          // Caso contrário, encontrar a seção mais próxima
-          const distance = Math.abs(scrollPosition - elementCenter)
-          if (distance < minDistance) {
-            minDistance = distance
-            closestSection = index
-          }
-        }
-      })
+              // Caso contrário, encontrar a seção mais próxima
+              const distance = Math.abs(scrollPosition - elementCenter)
+              if (distance < minDistance) {
+                minDistance = distance
+                closestSection = index
+              }
+            }
+          })
 
-      setCurrentSection(closestSection)
+          setCurrentSection(closestSection)
+          ticking = false;
+        });
+        
+        ticking = true;
+      }
     }
 
     // Executar imediatamente e depois no scroll
     handleScroll()
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [sections])
 
@@ -103,6 +108,7 @@ function App() {
 
   const clearTree = () => {
     setTreeRoot(null)
+    setHighlightCommand({ type: null })
   }
 
   const generateRandomTree = () => {
@@ -320,7 +326,7 @@ function App() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-main text-white relative overflow-x-hidden scroll-smooth">
+    <div className="w-full min-h-screen bg-gradient-main text-white relative prevent-horizontal-scroll">
       <Navigation
         sections={sections}
         currentSection={currentSection}
@@ -329,13 +335,17 @@ function App() {
           setCurrentSection(index)
 
           // Fazer o scroll suave para a seção
-          const targetElement = document.getElementById(sections[index])
-          if (targetElement) {
-            targetElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'start'
-            })
-          }
+          setTimeout(() => {
+            const targetElement = document.getElementById(sections[index])
+            if (targetElement) {
+              // Usar scrollTo com offset para evitar que o header cubra o conteúdo
+              const elementTop = targetElement.offsetTop - 100
+              window.scrollTo({
+                top: Math.max(0, elementTop),
+                behavior: 'smooth'
+              })
+            }
+          }, 150)
         }}
       />
 
@@ -350,14 +360,14 @@ function App() {
       </motion.section>
 
       <motion.section
-        id="prerequisites"
+        id="recap"
         className="min-h-screen px-8 pt-24 pb-16 flex flex-col justify-center items-center relative"
         initial={{ opacity: 0, y: 50 }}
         whileInView={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         viewport={{ once: true }}
       >
-        <LectureSlides section="prerequisites" />
+        <LectureSlides section="recap" />
       </motion.section>
 
       <motion.section
@@ -422,7 +432,7 @@ function App() {
       >
         <div className="w-full max-w-7xl mx-auto">
           <motion.h2
-            className="text-4xl md:text-5xl font-bold text-center mb-8 bg-gradient-text bg-clip-text text-transparent"
+            className="text-4xl md:text-5xl font-bold text-center mb-8 gradient-text"
             initial={{ opacity: 0, y: -30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -452,6 +462,7 @@ function App() {
               onSearch={searchNode}
               onDelete={deleteNode}
               onHighlightCommand={setHighlightCommand}
+              onResetHighlight={() => setHighlightCommand({ type: null })}
             />
           </motion.div>
 
@@ -506,76 +517,6 @@ function App() {
       </motion.section>
 
       <motion.section
-        id="dungeon"
-        className="min-h-screen px-8 pt-24 pb-16 flex flex-col justify-center items-center relative bg-gradient-to-br from-amber-900 via-orange-900 to-red-900"
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true }}
-      >
-        <div className="w-full max-w-6xl mx-auto text-center">
-          <motion.h2
-            className="text-4xl md:text-5xl font-bold mb-4 text-amber-100"
-            initial={{ opacity: 0, y: -20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            🏰 Explorador de Masmorras Binárias
-          </motion.h2>
-
-          <motion.p
-            className="text-xl text-amber-200 mb-8"
-            initial={{ opacity: 0, y: -10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            viewport={{ once: true }}
-          >
-            Encontre o tesouro navegando pela masmorra organizada como uma árvore binária!
-          </motion.p>
-
-          <motion.button
-            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-4 px-8 rounded-full text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 mb-8"
-            onClick={() => setGameMode(!gameMode)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            viewport={{ once: true }}
-          >
-            {gameMode ? 'Voltar aos Slides' : 'Jogar Masmorra Binária'}
-          </motion.button>
-
-          <AnimatePresence mode="wait">
-            {gameMode ? (
-              <motion.div
-                key="game"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.5 }}
-                className="w-full"
-              >
-                <DungeonGame />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="slides"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="w-full"
-              >
-                <LectureSlides section="dungeon" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.section>
-
-      <motion.section
         id="errors"
         className="min-h-screen px-8 pt-24 pb-16 flex flex-col justify-center items-center relative"
         initial={{ opacity: 0, y: 50 }}
@@ -597,16 +538,17 @@ function App() {
         <LectureSlides section="complexity" />
       </motion.section>
 
-      <motion.section
-        id="conclusion"
-        className="min-h-screen px-8 pt-24 pb-16 flex flex-col justify-center items-center relative bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900"
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true }}
-      >
-        <LectureSlides section="conclusion" />
-      </motion.section>
+<motion.section
+  id="conclusion"
+  className="min-h-screen px-8 pt-24 pb-16 flex flex-col justify-center items-center relative bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900"
+  initial={{ opacity: 0, y: 50 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.8, ease: "easeOut" }}
+  viewport={{ once: true }}
+>
+   <LectureSlides section="conclusion" />
+  
+</motion.section>
     </div>
   )
 }
